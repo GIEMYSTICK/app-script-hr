@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปข้อมูลพนักงาน</title>
+    <style>
+      #loader { display: none; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .active { @apply bg-blue-800; }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <nav class="bg-blue-700 text-white p-4 shadow-lg">
+      <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">HR System</h1>
+        <div class="flex gap-4">
+          <a href="https://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=hr" class="px-4 py-2 rounded-lg transition hover:bg-blue-800">แดชบอร์ด HR</a>
+          <a href="https://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=emp_summary" class="px-4 py-2 rounded-lg transition active">สรุปพนักงาน</a>
+          <a href="https://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=monthly_report" class="px-4 py-2 rounded-lg transition hover:bg-blue-800">รายงานเดือน</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto p-4 md:p-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">สรุปข้อมูลพนักงาน</h1>
+
+      <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+        <div class="flex flex-col md:flex-row gap-4 items-center">
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-2">เลือกพนักงาน:</label>
+            <select id="emp-select" class="w-full p-3 border border-gray-300 rounded-lg text-lg"></select>
+          </div>
+          <button id="fetch-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2">
+            <div id="loader" class="border-4 border-t-blue-500 border-gray-200 rounded-full w-5 h-5 animate-spin"></div>
+            <span>ค้นหา</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="summary-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"></div>
+
+      <div class="bg-white p-6 rounded-xl shadow-lg">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">ประวัติการลงเวลา (เดือนนี้)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-200 text-gray-700 uppercase">
+              <tr>
+                <th class="py-2 px-3">วันที่</th>
+                <th class="py-2 px-3">เข้า</th>
+                <th class="py-2 px-3">ออก</th>
+                <th class="py-2 px-3">พัก</th>
+                <th class="py-2 px-3">กลับ</th>
+                <th class="py-2 px-3">สถานะ</th>
+                <th class="py-2 px-3">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody id="log-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const empSelect = document.getElementById("emp-select");
+      const fetchBtn = document.getElementById("fetch-btn");
+      const loader = document.getElementById("loader");
+      const summaryContainer = document.getElementById("summary-container");
+      const logTable = document.getElementById("log-table");
+
+      google.script.run
+        .withSuccessHandler(data => {
+          data.forEach(emp => {
+            const opt = document.createElement("option");
+            opt.value = emp.id;
+            opt.textContent = `${emp.name} (${emp.id}) - ${emp.department}`;
+            empSelect.appendChild(opt);
+          });
+        })
+        .getAllEmployees();
+
+      fetchBtn.addEventListener("click", () => {
+        const empId = empSelect.value;
+        if (!empId) return alert("กรุณาเลือกพนักงาน");
+        fetchSummary(empId);
+      });
+
+      function fetchSummary(empId) {
+        showLoading(true);
+        summaryContainer.innerHTML = "";
+        logTable.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500">กำลังโหลด...</td></tr>`;
+
+        google.script.run
+          .withSuccessHandler(data => {
+            showLoading(false);
+            const { summary, logs } = data;
+
+            summaryContainer.innerHTML = `
+              <div class="bg-green-50 p-4 rounded-lg"><h3 class="text-sm font-medium text-green-700">มาทำงาน</h3><p class="text-3xl font-bold text-green-700">${summary.present}</p></div>
+              <div class="bg-yellow-50 p-4 rounded-lg"><h3 class="text-sm font-medium text-yellow-700">สาย</h3><p class="text-3xl font-bold text-yellow-700">${summary.late}</p></div>
+              <div class="bg-red-50 p-4 rounded-lg"><h3 class="text-sm font-medium text-red-700">ขาด/ลา</h3><p class="text-3xl font-bold text-red-700">${summary.absent}</p></div>
+            `;
+
+            logTable.innerHTML = "";
+            if (logs.length === 0) {
+              logTable.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500">ไม่พบข้อมูล</td></tr>`;
+              return;
+            }
+            logs.forEach(log => {
+              const row = document.createElement("tr");
+              row.className = "border-b hover:bg-gray-50";
+              row.innerHTML = `
+                <td class="py-2 px-3">${log.date}</td>
+                <td class="py-2 px-3">${log.clockIn}</td>
+                <td class="py-2 px-3">${log.clockOut}</td>
+                <td class="py-2 px-3">${log.breakStart}</td>
+                <td class="py-2 px-3">${log.breakEnd}</td>
+                <td class="py-2 px-3">${log.status}</td>
+                <td class="py-2 px-3 text-xs">${log.remarks}</td>
+              `;
+              logTable.appendChild(row);
+            });
+          })
+          .withFailureHandler(err => {
+            showLoading(false);
+            alert("เกิดข้อผิดพลาด: " + err.message);
+          })
+          .getEmployeeMonthlySummary(empId);
+      }
+
+      function showLoading(isLoading) {
+        loader.style.display = isLoading ? "block" : "none";
+        fetchBtn.disabled = isLoading;
+      }
+    </script>
+  </body>
+</html>
