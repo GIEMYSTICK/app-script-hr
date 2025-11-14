@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Dashboard</title>
+    <style>
+      #loader { display: none; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .active { @apply bg-blue-800; }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <nav class="bg-blue-700 text-white p-4 shadow-lg">
+      <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">HR System</h1>
+        <div class="flex gap-4">
+          <a href="hhttps://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=hr" class="px-4 py-2 rounded-lg transition active">แดชบอร์ด HR</a>
+          <a href="https://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=emp_summary" class="px-4 py-2 rounded-lg transition hover:bg-blue-800">สรุปพนักงาน</a>
+          <a href="https://script.google.com/macros/s/AKfycbwcjv6i490gEFYLt1ElxT9lt25MOQJsdvMfLO4HR9gHlqz7XDlj2oM-Y0WcQ9-q2FGR/exec?page=monthly_report" class="px-4 py-2 rounded-lg transition hover:bg-blue-800">รายงานเดือน</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+      <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-gray-800">HR Dashboard</h1>
+        <div class="flex items-center gap-4">
+          <input type="date" id="date-picker" class="border border-gray-300 rounded-lg p-2 text-lg">
+          <button id="fetch-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-lg flex items-center gap-2">
+            <div id="loader" class="border-4 border-t-blue-500 border-gray-200 rounded-full w-5 h-5 animate-spin"></div>
+            <span>ค้นหา</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="summary-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4"></div>
+
+      <div class="bg-white p-6 rounded-xl shadow-lg">
+        <div class="table-container shadow rounded-lg overflow-x-auto">
+          <table id="summary-table" class="w-full text-left">
+            <thead class="bg-gray-200 text-gray-700 uppercase text-sm">
+              <tr>
+                <th class="py-3 px-4">พนักงาน</th>
+                <th class="py-3 px-4">แผนก</th>
+                <th class="py-3 px-4">สถานะ</th>
+                <th class="py-3 px-4">เข้า</th>
+                <th class="py-3 px-4">ออก</th>
+                <th class="py-3 px-4">พัก</th>
+                <th class="py-3 px-4">กลับ</th>
+                <th class="py-3 px-4">หมายเหตุ</th>
+                <th class="py-3 px-4">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="text-gray-800">
+              <tr><td colspan="9" class="text-center p-8 text-gray-500">กรุณาเลือกวันที่</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="manage-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" style="display:none;">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+        <h2 class="text-2xl font-bold mb-4">จัดการสถานะ</h2>
+        <p class="mb-4">พนักงาน: <strong id="modal-emp-name"></strong></p>
+        <input type="hidden" id="modal-emp-id"><input type="hidden" id="modal-date">
+        <select id="modal-action" class="w-full p-2 border mb-3">
+          <option>ลาป่วย</option><option>ลากิจ</option><option>ลาพักร้อน</option><option>ขาดงาน</option>
+        </select>
+        <input type="text" id="modal-remarks" class="w-full p-2 border mb-3" placeholder="หมายเหตุ">
+        <div class="flex justify-end gap-3">
+          <button id="modal-cancel-btn" class="bg-gray-300 px-4 py-2 rounded">ยกเลิก</button>
+          <button id="modal-submit-btn" class="bg-green-600 text-white px-4 py-2 rounded">บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const datePicker = document.getElementById("date-picker");
+      const fetchBtn = document.getElementById("fetch-btn");
+      const tableBody = document.getElementById("table-body");
+      const loader = document.getElementById("loader");
+      const summaryContainer = document.getElementById("summary-container");
+
+      const modal = document.getElementById("manage-modal");
+      const modalEmpName = document.getElementById("modal-emp-name");
+      const modalEmpId = document.getElementById("modal-emp-id");
+      const modalDate = document.getElementById("modal-date");
+      const modalAction = document.getElementById("modal-action");
+      const modalRemarks = document.getElementById("modal-remarks");
+      const modalCancelBtn = document.getElementById("modal-cancel-btn");
+      const modalSubmitBtn = document.getElementById("modal-submit-btn");
+
+      function setToday() { const now = new Date(); datePicker.value = now.toISOString().split('T')[0]; }
+      fetchBtn.onclick = fetchSummary;
+      function fetchSummary() {
+        const date = datePicker.value;
+        if (!date) return alert("กรุณาเลือกวันที่");
+        showLoading(true);
+        google.script.run.withSuccessHandler(onSummaryLoaded).withFailureHandler(onFailure).getDailySummary(date);
+      }
+
+      function onSummaryLoaded(data) {
+        showLoading(false);
+        if (data.error) return onFailure(data);
+        const { summary, counts } = data;
+        summaryContainer.innerHTML = `
+          <div class="bg-blue-50 p-4 rounded"><h3 class="text-sm text-blue-700">ทั้งหมด</h3><p class="text-3xl font-bold text-blue-700">${counts.total}</p></div>
+          <div class="bg-green-50 p-4 rounded"><h3 class="text-sm text-green-700">มาทำงาน</h3><p class="text-3xl font-bold text-green-700">${counts.present}</p></div>
+          <div class="bg-yellow-50 p-4 rounded"><h3 class="text-sm text-yellow-700">สาย</h3><p class="text-3xl font-bold text-yellow-700">${counts.late}</p></div>
+          <div class="bg-red-50 p-4 rounded"><h3 class="text-sm text-red-700">ขาด/ลา</h3><p class="text-3xl font-bold text-red-700">${counts.absent + counts.sick + counts.personal + counts.vacation}</p></div>
+        `;
+        tableBody.innerHTML = "";
+        summary.forEach(emp => {
+          const row = document.createElement("tr");
+          row.className = "border-b hover:bg-gray-50";
+          row.innerHTML = `
+            <td class="py-3 px-4">${emp.name} (${emp.empId})</td>
+            <td class="py-3 px-4">${emp.department}</td>
+            <td class="py-3 px-4">${emp.status}</td>
+            <td class="py-3 px-4">${emp.clockIn}</td>
+            <td class="py-3 px-4">${emp.clockOut}</td>
+            <td class="py-3 px-4">${emp.breakStart}</td>
+            <td class="py-3 px-4">${emp.breakEnd}</td>
+            <td class="py-3 px-4 text-xs">${emp.remarks || '-'}</td>
+            <td class="py-3 px-4"><button class="manage-btn bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs" data-empid="${emp.empId}" data-name="${emp.name}">จัดการ</button></td>
+          `;
+          tableBody.appendChild(row);
+        });
+        document.querySelectorAll('.manage-btn').forEach(btn => btn.onclick = () => {
+          modalEmpName.textContent = btn.dataset.name;
+          modalEmpId.value = btn.dataset.empid;
+          modalDate.value = datePicker.value;
+          modal.style.display = "flex";
+        });
+      }
+
+      function onFailure(err) { showLoading(false); alert("Error: " + err.message); }
+      function showLoading(yes) { loader.style.display = yes ? "block" : "none"; fetchBtn.disabled = yes; }
+
+      modalCancelBtn.onclick = () => modal.style.display = "none";
+      modalSubmitBtn.onclick = () => {
+        const data = { empId: modalEmpId.value, date: modalDate.value, action: modalAction.value, remarks: modalRemarks.value };
+        modalSubmitBtn.disabled = true;
+        google.script.run.withSuccessHandler(() => { modal.style.display = "none"; fetchSummary(); }).manualUpdateLog(data);
+      };
+
+      setToday(); fetchSummary();
+    </script>
+  </body>
+</html>
